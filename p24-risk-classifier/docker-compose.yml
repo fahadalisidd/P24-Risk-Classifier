@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: p24-risk-classifier-app
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://p24_user:p24_password@postgres:5432/p24_risk_db
+      - DEBUG=False
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: p24-risk-classifier-db
+    environment:
+      POSTGRES_USER: p24_user
+      POSTGRES_PASSWORD: p24_password
+      POSTGRES_DB: p24_risk_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U p24_user -d p24_risk_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

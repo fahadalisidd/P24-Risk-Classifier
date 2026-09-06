@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>P24: Risk Rubric, Classifier & RAG AI Advisor</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            },
+            risk: {
+              low: '#10b981',
+              medium: '#f59e0b',
+              high: '#f97316',
+              critical: '#ef4444',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background: #0b0f19; color: #f3f4f6; font-family: 'Inter', sans-serif; }
+    .glass-panel { background: rgba(17, 24, 39, 0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    .glass-card { background: rgba(31, 41, 55, 0.6); backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.06); }
+    .glow-critical { box-shadow: 0 0 25px rgba(239, 68, 68, 0.35); }
+    .glow-high { box-shadow: 0 0 25px rgba(249, 115, 22, 0.35); }
+    .glow-medium { box-shadow: 0 0 25px rgba(245, 158, 11, 0.35); }
+    .glow-low { box-shadow: 0 0 25px rgba(16, 185, 129, 0.35); }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased">
+
+  <!-- TOP NAVIGATION BAR -->
+  <header class="sticky top-0 z-50 glass-panel border-b border-gray-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
+          <i class="fa-solid fa-shield-halved text-lg"></i>
+        </div>
+        <div>
+          <span class="text-lg font-bold bg-gradient-to-r from-white via-gray-200 to-indigo-300 bg-clip-text text-transparent">P24 Risk Classifier</span>
+          <span class="ml-2 text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-medium">RAG + AI Edition</span>
+        </div>
+      </div>
+
+      <!-- Nav Links & Status -->
+      <div class="flex items-center space-x-4">
+        <div class="hidden sm:flex items-center px-3 py-1 rounded-full bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 text-xs font-medium">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse mr-2"></span>
+          Engine Active
+        </div>
+        <a href="/docs" target="_blank" class="px-3.5 py-1.5 text-xs font-medium text-gray-300 hover:text-white bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-700 transition flex items-center space-x-1.5">
+          <i class="fa-solid fa-book-open"></i>
+          <span>Swagger API Docs</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    
+    <!-- NAVIGATION TABS -->
+    <div class="flex space-x-2 border-b border-gray-800 mb-8 overflow-x-auto pb-2">
+      <button onclick="switchTab('evaluator')" id="tab-evaluator" class="tab-btn px-4 py-2 text-sm font-semibold rounded-lg bg-indigo-600 text-white flex items-center space-x-2 transition shadow-lg shadow-indigo-500/20">
+        <i class="fa-solid fa-calculator"></i>
+        <span>Risk Evaluator Studio</span>
+      </button>
+      <button onclick="switchTab('rag')" id="tab-rag" class="tab-btn px-4 py-2 text-sm font-semibold rounded-lg text-gray-400 hover:text-gray-200 hover:bg-gray-800 flex items-center space-x-2 transition">
+        <i class="fa-solid fa-database"></i>
+        <span>RAG Policy Knowledge Base</span>
+      </button>
+      <button onclick="switchTab('reviews')" id="tab-reviews" class="tab-btn px-4 py-2 text-sm font-semibold rounded-lg text-gray-400 hover:text-gray-200 hover:bg-gray-800 flex items-center space-x-2 transition">
+        <i class="fa-solid fa-user-check"></i>
+        <span>2-Engineer Review Simulator</span>
+      </button>
+      <button onclick="switchTab('pins')" id="tab-pins" class="tab-btn px-4 py-2 text-sm font-semibold rounded-lg text-gray-400 hover:text-gray-200 hover:bg-gray-800 flex items-center space-x-2 transition">
+        <i class="fa-solid fa-thumbtack"></i>
+        <span>Policy Pins & Overdue Report</span>
+      </button>
+    </div>
+
+    <!-- TAB 1: RISK EVALUATOR STUDIO -->
+    <section id="panel-evaluator" class="tab-panel">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <!-- LEFT: Controls & Input Parameters -->
+        <div class="lg:col-span-6 space-y-6">
+          <div class="glass-panel rounded-2xl p-6 shadow-xl">
+            <h2 class="text-base font-semibold text-white mb-4 flex items-center justify-between">
+              <span class="flex items-center space-x-2">
+                <i class="fa-solid fa-sliders text-indigo-400"></i>
+                <span>Operation Parameters & Dimensions</span>
+              </span>
+              <!-- Quick Presets -->
+              <div class="text-xs text-gray-400">
+                Preset:
+                <select id="preset-selector" onchange="applyPreset(this.value)" class="ml-1 bg-gray-800 border border-gray-700 text-gray-200 rounded px-2 py-1 focus:outline-none">
+                  <option value="critical">Prod DB Delete (Cat 4)</option>
+                  <option value="high">Global Migration (Cat 3)</option>
+                  <option value="medium">Staging Update (Cat 2)</option>
+                  <option value="low">Local Read (Cat 1)</option>
+                </select>
+              </div>
+            </h2>
+
+            <!-- Dimension 1: Scope -->
+            <div class="mb-4">
+              <label class="block text-xs font-medium text-gray-400 mb-1.5 flex justify-between">
+                <span>1. Scope Dimension</span>
+                <span id="label-scope" class="text-indigo-400 font-bold">GLOBAL (Weight: 4)</span>
+              </label>
+              <div class="grid grid-cols-4 gap-2">
+                <button type="button" onclick="setDim('scope', 'LOCAL', 1)" class="dim-btn-scope p-2 text-xs rounded-lg border border-gray-700 hover:border-indigo-500 text-gray-300 font-medium transition" data-val="LOCAL">LOCAL (1)</button>
+                <button type="button" onclick="setDim('scope', 'TEAM', 2)" class="dim-btn-scope p-2 text-xs rounded-lg border border-gray-700 hover:border-indigo-500 text-gray-300 font-medium transition" data-val="TEAM">TEAM (2)</button>
+                <button type="button" onclick="setDim('scope', 'ORGANIZATION', 3)" class="dim-btn-scope p-2 text-xs rounded-lg border border-gray-700 hover:border-indigo-500 text-gray-300 font-medium transition" data-val="ORGANIZATION">ORG (3)</button>
+                <button type="button" onclick="setDim('scope', 'GLOBAL', 4)" class="dim-btn-scope p-2 text-xs rounded-lg border border-indigo-500 bg-indigo-600/30 text-white font-semibold transition" data-val="GLOBAL">GLOBAL (4)</button>
+              </div>
+            </div>
+
+            <!-- Dimension 2: Reversibility -->
+            <div class="mb-4">
+              <label class="block text-xs font-medium text-gray-400 mb-1.5 flex justify-between">
+                <span>2. Reversibility Dimension</span>
+                <span id="label-rev" class="text-indigo-400 font-bold">IRREVERSIBLE (Weight: 4)</span>
+              </label>
+              <div class="grid grid-cols-3 gap-2">
+                <button type="button" onclick="setDim('rev', 'REVERSIBLE', 1)" class="dim-btn-rev p-2 text-xs rounded-lg border border-gray-700 hover:border-indigo-500 text-gray-300 font-medium transition" data-val="REVERSIBLE">REVERSIBLE (1)</button>
+                <button type="button" onclick="setDim('rev', 'PARTIALLY_REVERSIBLE', 2)" class="dim-btn-rev p-2 text-xs rounded-lg border border-gray-700 hover:border-indigo-500 text-gray-300 font-medium transition" data-val="PARTIALLY_REVERSIBLE">PARTIAL (2)</button>
+                <button type="button" onclick="setDim('rev', 'IRREVERSIBLE', 4)" class="dim-btn-rev p-2 text-xs rounded-lg border border-indigo-500 bg-indigo-600/30 text-white font-semibold transition" data-val="IRREVERSIBLE">IRREVERSIBLE (4)</button>
+              </div>
+            </div>
+
+            <!-- Dimension 3: Persistence -->
+            <div class="mb-5">
+              <label class="block text-xs font-medium text-gray-400 mb-1.5 flex justify-between">
+                <span>3. Persistence Dimension</span>
+                <span id="label-pers" class="text-indigo-400 font-bold">PERMANENT (Weight: 4)</span>
+              </label>
+              <div class="grid grid-cols-3 gap-2">
+                <button type="button" onclick="setDim('pers', 'TEMPORARY', 1)" class="dim-btn-pers p-2 text-xs rounded-lg border border-gray-700 hover:border-indigo-500 text-gray-300 font-medium transition" data-val="TEMPORARY">TEMPORARY (1)</button>
+                <button type="button" onclick="setDim('pers', 'LONG_TERM', 2)" class="dim-btn-pers p-2 text-xs rounded-lg border border-gray-700 hover:border-indigo-500 text-gray-300 font-medium transition" data-val="LONG_TERM">LONG TERM (2)</button>
+                <button type="button" onclick="setDim('pers', 'PERMANENT', 4)" class="dim-btn-pers p-2 text-xs rounded-lg border border-indigo-500 bg-indigo-600/30 text-white font-semibold transition" data-val="PERMANENT">PERMANENT (4)</button>
+              </div>
+            </div>
+
+            <!-- Live Mathematical Formula Bar -->
+            <div class="p-3 bg-gray-900/90 rounded-xl border border-gray-800 flex items-center justify-between text-xs mb-5">
+              <span class="text-gray-400">Formula: <span class="text-gray-200">Scope × Reversibility × Persistence</span></span>
+              <span id="formula-calc" class="font-mono font-bold text-indigo-300">4 × 4 × 4 = 64 (Category 4)</span>
+            </div>
+
+            <!-- Payload Details -->
+            <div class="space-y-3 pt-2 border-t border-gray-800">
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-medium text-gray-400 mb-1">Operation ID</label>
+                  <input type="text" id="input-op-id" value="op-prod-101" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-white focus:border-indigo-500 focus:outline-none">
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-400 mb-1">Operation Type</label>
+                  <input type="text" id="input-op-type" value="DELETE" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-white focus:border-indigo-500 focus:outline-none">
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1">Environment</label>
+                <input type="text" id="input-env" value="PRODUCTION" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-white focus:border-indigo-500 focus:outline-none">
+              </div>
+
+              <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1">Justification</label>
+                <textarea id="input-justification" rows="2" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-white focus:border-indigo-500 focus:outline-none" placeholder="Explain why this operation is necessary...">Emergency purge of deprecated analytics database cluster</textarea>
+              </div>
+
+              <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1">Rollback Plan</label>
+                <textarea id="input-rollback" rows="2" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-white focus:border-indigo-500 focus:outline-none" placeholder="Rollback plan...">Snapshot point-in-time recovery image RDS-2026-08-30</textarea>
+              </div>
+
+              <div>
+                <label class="block text-xs font-medium text-gray-400 mb-1">Approval Token</label>
+                <input type="text" id="input-approval" value="CAB-2026-99" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-white focus:border-indigo-500 focus:outline-none">
+              </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button onclick="evaluateRisk()" id="btn-evaluate" class="w-full mt-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/30 transition flex items-center justify-center space-x-2">
+              <i class="fa-solid fa-bolt"></i>
+              <span>Evaluate Risk & Check Obligations (RAG + AI)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- RIGHT: Live Results & Explainability -->
+        <div class="lg:col-span-6 space-y-6">
+          <div id="results-placeholder" class="glass-panel rounded-2xl p-12 text-center text-gray-500 border-dashed border-2 border-gray-800 flex flex-col items-center justify-center min-h-[500px]">
+            <i class="fa-solid fa-chart-pie text-5xl mb-4 text-gray-700"></i>
+            <p class="text-sm font-medium">Click "Evaluate Risk" to generate live deterministic classification, safety obligations check, and RAG policy insights.</p>
+          </div>
+
+          <div id="results-card" class="hidden space-y-6">
+            <!-- Main Risk Badge Card -->
+            <div id="badge-card" class="glass-panel rounded-2xl p-6 border-l-8 transition-all">
+              <div class="flex items-center justify-between mb-4">
+                <div>
+                  <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Final Risk Classification</span>
+                  <h3 id="res-cat-title" class="text-3xl font-extrabold mt-1">CRITICAL (Category 4)</h3>
+                </div>
+                <div id="res-score-badge" class="px-4 py-2 rounded-xl bg-gray-800 font-mono font-bold text-xl border border-gray-700">
+                  Score: 64
+                </div>
+              </div>
+
+              <!-- Obligations Status Banner -->
+              <div id="res-obligations-banner" class="p-3.5 rounded-xl text-xs font-semibold flex items-center justify-between mb-4">
+                <span id="res-obligations-text">Obligations Satisfied: YES</span>
+                <i id="res-obligations-icon" class="fa-solid fa-check-circle text-lg"></i>
+              </div>
+
+              <!-- Required vs Missing Obligations List -->
+              <div class="space-y-1.5 text-xs">
+                <div class="text-gray-400 font-medium">Obligations Checklist:</div>
+                <div id="obligations-checklist" class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                  <!-- Dynamic check items -->
+                </div>
+              </div>
+            </div>
+
+            <!-- RAG Retrieved Policy Citations -->
+            <div class="glass-panel rounded-2xl p-5">
+              <h4 class="text-xs font-bold text-indigo-300 uppercase tracking-wider mb-3 flex items-center space-x-2">
+                <i class="fa-solid fa-book-bookmark text-indigo-400"></i>
+                <span>RAG Grounded Policy Citations & Precedents</span>
+              </h4>
+              <div id="rag-citations-container" class="space-y-2 text-xs">
+                <!-- Injected via JS -->
+              </div>
+            </div>
+
+            <!-- AI Model Assessment & Red Flags -->
+            <div class="glass-panel rounded-2xl p-5">
+              <h4 class="text-xs font-bold text-purple-300 uppercase tracking-wider mb-3 flex items-center space-x-2">
+                <i class="fa-solid fa-brain text-purple-400"></i>
+                <span>AI Risk Advisor & NLP Text Audit</span>
+              </h4>
+              <p id="ai-summary-text" class="text-xs text-gray-300 leading-relaxed mb-3"></p>
+              
+              <!-- Quality Gauges -->
+              <div class="grid grid-cols-2 gap-2 text-xs mb-3">
+                <div class="p-2 bg-gray-900 rounded-lg border border-gray-800">
+                  <span class="text-gray-400">Justification Quality:</span>
+                  <span id="ai-just-quality" class="font-bold text-emerald-400 ml-1">HIGH</span>
+                </div>
+                <div class="p-2 bg-gray-900 rounded-lg border border-gray-800">
+                  <span class="text-gray-400">Rollback Quality:</span>
+                  <span id="ai-rollback-quality" class="font-bold text-emerald-400 ml-1">STRONG</span>
+                </div>
+              </div>
+
+              <!-- Semantic Red Flags (if any) -->
+              <div id="ai-redflags-section" class="space-y-1 text-xs">
+                <!-- Red flags list -->
+              </div>
+            </div>
+
+            <!-- Mathematical Explanation Log -->
+            <div class="glass-panel rounded-2xl p-5">
+              <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center space-x-2">
+                <i class="fa-solid fa-list-check"></i>
+                <span>Audit & Classification Reasoning Log</span>
+              </h4>
+              <ul id="reasoning-list" class="space-y-1.5 text-xs text-gray-300 font-mono list-disc list-inside">
+                <!-- Log items -->
+              </ul>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- TAB 2: RAG POLICY KNOWLEDGE BASE -->
+    <section id="panel-rag" class="tab-panel hidden space-y-6">
+      <div class="glass-panel rounded-2xl p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h2 class="text-lg font-bold text-white">Policy & Incident Knowledge Base</h2>
+            <p class="text-xs text-gray-400 mt-0.5">Semantic vector store containing company standards, SOPs, and historical incident postmortems.</p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <input type="text" id="rag-search-input" placeholder="Semantic search policies..." class="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none w-64">
+            <button onclick="searchRAGKnowledgeBase()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition">
+              <i class="fa-solid fa-magnifying-glass mr-1"></i> Search
+            </button>
+          </div>
+        </div>
+
+        <div id="rag-documents-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Loaded via JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: 2-ENGINEER REVIEW SIMULATOR -->
+    <section id="panel-reviews" class="tab-panel hidden space-y-6">
+      <div class="glass-panel rounded-2xl p-6">
+        <h2 class="text-lg font-bold text-white mb-2">Two-Engineer Independent Review Simulator</h2>
+        <p class="text-xs text-gray-400 mb-6">Test consensus detection (AGREEMENT) and conflict preservation (DISAGREEMENT) with automated note logging.</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <!-- Engineer 1 Form -->
+          <div class="glass-card rounded-xl p-5 border border-indigo-500/20">
+            <h3 class="text-sm font-bold text-indigo-300 mb-3 flex items-center space-x-2">
+              <i class="fa-solid fa-user-tie"></i>
+              <span>Engineer 1 (Alice)</span>
+            </h3>
+            <div class="space-y-3">
+              <div>
+                <label class="block text-xs text-gray-400 mb-1">Target Category (1-4)</label>
+                <select id="rev-eng1-cat" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-white">
+                  <option value="3">Category 3 (HIGH)</option>
+                  <option value="4" selected>Category 4 (CRITICAL)</option>
+                  <option value="2">Category 2 (MEDIUM)</option>
+                  <option value="1">Category 1 (LOW)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-gray-400 mb-1">Reason</label>
+                <input type="text" id="rev-eng1-reason" value="Global irreversible blast radius" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-white">
+              </div>
+              <button onclick="submitPeerReview('engineer-alice', 'rev-eng1')" class="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition">
+                Submit Engineer 1 Score
+              </button>
+            </div>
+          </div>
+
+          <!-- Engineer 2 Form -->
+          <div class="glass-card rounded-xl p-5 border border-purple-500/20">
+            <h3 class="text-sm font-bold text-purple-300 mb-3 flex items-center space-x-2">
+              <i class="fa-solid fa-user-astronaut"></i>
+              <span>Engineer 2 (Bob)</span>
+            </h3>
+            <div class="space-y-3">
+              <div>
+                <label class="block text-xs text-gray-400 mb-1">Target Category (1-4)</label>
+                <select id="rev-eng2-cat" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-white">
+                  <option value="3">Category 3 (HIGH)</option>
+                  <option value="4">Category 4 (CRITICAL)</option>
+                  <option value="2">Category 2 (MEDIUM)</option>
+                  <option value="1">Category 1 (LOW)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-gray-400 mb-1">Reason</label>
+                <input type="text" id="rev-eng2-reason" value="Operation is reversible via snapshot" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-white">
+              </div>
+              <button onclick="submitPeerReview('engineer-bob', 'rev-eng2')" class="w-full py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold transition">
+                Submit Engineer 2 Score
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Consensus Output -->
+        <div id="review-consensus-box" class="hidden glass-panel rounded-xl p-5">
+          <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Consensus Status</h4>
+          <div id="review-consensus-content"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: POLICY PINS & OVERDUE REPORT -->
+    <section id="panel-pins" class="tab-panel hidden space-y-6">
+      <div class="glass-panel rounded-2xl p-6">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-lg font-bold text-white">Policy Pin Registry & Overdue Audit</h2>
+            <p class="text-xs text-gray-400 mt-0.5">Pins past reviewDate are proactively reported as REVIEW_OVERDUE.</p>
+          </div>
+          <button onclick="loadPinsReport()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition">
+            <i class="fa-solid fa-arrows-rotate mr-1"></i> Refresh Report
+          </button>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-xs text-left">
+            <thead class="bg-gray-800 text-gray-400 uppercase">
+              <tr>
+                <th class="px-4 py-2.5 rounded-l-lg">Pin ID</th>
+                <th class="px-4 py-2.5">Policy ID</th>
+                <th class="px-4 py-2.5">Review Date</th>
+                <th class="px-4 py-2.5">Status</th>
+                <th class="px-4 py-2.5 rounded-r-lg">Days Overdue</th>
+              </tr>
+            </thead>
+            <tbody id="pins-table-body" class="divide-y divide-gray-800 text-gray-300">
+              <!-- Loaded via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- JAVASCRIPT APP LOGIC -->
+  <script>
+    let state = {
+      scope: 'GLOBAL', scopeW: 4,
+      rev: 'IRREVERSIBLE', revW: 4,
+      pers: 'PERMANENT', persW: 4,
+    };
+
+    function updateFormula() {
+      const score = state.scopeW * state.revW * state.persW;
+      let cat = 1;
+      if (score > 16) cat = 4;
+      else if (score > 11) cat = 3;
+      else if (score > 6) cat = 2;
+      document.getElementById('formula-calc').innerText = `${state.scopeW} × ${state.revW} × ${state.persW} = ${score} (Category ${cat})`;
+    }
+
+    function setDim(dim, val, weight) {
+      if (dim === 'scope') {
+        state.scope = val; state.scopeW = weight;
+        document.getElementById('label-scope').innerText = `${val} (Weight: ${weight})`;
+        document.querySelectorAll('.dim-btn-scope').forEach(b => {
+          b.className = b.dataset.val === val 
+            ? 'dim-btn-scope p-2 text-xs rounded-lg border border-indigo-500 bg-indigo-600/30 text-white font-semibold transition'
+            : 'dim-btn-scope p-2 text-xs rounded-lg border border-gray-700 hover:border-indigo-500 text-gray-300 font-medium transition';
+        });
+      } else if (dim === 'rev') {
+        state.rev = val; state.revW = weight;
+        document.getElementById('label-rev').innerText = `${val} (Weight: ${weight})`;
+        document.querySelectorAll('.dim-btn-rev').forEach(b => {
+          b.className = b.dataset.val === val 
+            ? 'dim-btn-rev p-2 text-xs rounded-lg border border-indigo-500 bg-indigo-600/30 text-white font-semibold transition'
+            : 'dim-btn-rev p-2 text-xs rounded-lg border border-gray-700 hover:border-indigo-500 text-gray-300 font-medium transition';
+        });
+      } else if (dim === 'pers') {
+        state.pers = val; state.persW = weight;
+        document.getElementById('label-pers').innerText = `${val} (Weight: ${weight})`;
+        document.querySelectorAll('.dim-btn-pers').forEach(b => {
+          b.className = b.dataset.val === val 
+            ? 'dim-btn-pers p-2 text-xs rounded-lg border border-indigo-500 bg-indigo-600/30 text-white font-semibold transition'
+            : 'dim-btn-pers p-2 text-xs rounded-lg border border-gray-700 hover:border-indigo-500 text-gray-300 font-medium transition';
+        });
+      }
+      updateFormula();
+    }
+
+    function applyPreset(preset) {
+      if (preset === 'critical') {
+        setDim('scope', 'GLOBAL', 4);
+        setDim('rev', 'IRREVERSIBLE', 4);
+        setDim('pers', 'PERMANENT', 4);
+        document.getElementById('input-op-type').value = 'DELETE';
+        document.getElementById('input-env').value = 'PRODUCTION';
+        document.getElementById('input-justification').value = 'Emergency purge of deprecated analytics cluster';
+        document.getElementById('input-rollback').value = 'Snapshot restore image RDS-2026-08-30';
+        document.getElementById('input-approval').value = 'CAB-2026-99';
+      } else if (preset === 'high') {
+        setDim('scope', 'GLOBAL', 4);
+        setDim('rev', 'REVERSIBLE', 1);
+        setDim('pers', 'PERMANENT', 4);
+        document.getElementById('input-op-type').value = 'MIGRATE';
+        document.getElementById('input-env').value = 'PRODUCTION';
+        document.getElementById('input-justification').value = 'Global user routing DNS migration';
+        document.getElementById('input-rollback').value = 'Revert route53 records';
+        document.getElementById('input-approval').value = 'CAB-102';
+      } else if (preset === 'medium') {
+        setDim('scope', 'TEAM', 2);
+        setDim('rev', 'PARTIALLY_REVERSIBLE', 2);
+        setDim('pers', 'LONG_TERM', 2);
+        document.getElementById('input-op-type').value = 'UPDATE';
+        document.getElementById('input-env').value = 'STAGING';
+        document.getElementById('input-justification').value = 'Staging config parameter update';
+        document.getElementById('input-rollback').value = 'Git revert';
+        document.getElementById('input-approval').value = '';
+      } else if (preset === 'low') {
+        setDim('scope', 'LOCAL', 1);
+        setDim('rev', 'REVERSIBLE', 1);
+        setDim('pers', 'TEMPORARY', 1);
+        document.getElementById('input-op-type').value = 'READ';
+        document.getElementById('input-env').value = 'DEVELOPMENT';
+        document.getElementById('input-justification').value = '';
+        document.getElementById('input-rollback').value = '';
+        document.getElementById('input-approval').value = '';
+      }
+    }
+
+    async function evaluateRisk() {
+      const btn = document.getElementById('btn-evaluate');
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Evaluating with RAG & AI...';
+      btn.disabled = true;
+
+      const payload = {
+        operationId: document.getElementById('input-op-id').value,
+        operationType: document.getElementById('input-op-type').value,
+        scope: state.scope,
+        reversibility: state.rev,
+        persistence: state.pers,
+        payload: {
+          environment: document.getElementById('input-env').value,
+          justification: document.getElementById('input-justification').value,
+          rollbackPlan: document.getElementById('input-rollback').value,
+          approval: document.getElementById('input-approval').value,
+        }
+      };
+
+      try {
+        const res = await fetch('/api/v1/rag/evaluate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        renderResults(data);
+      } catch (err) {
+        alert('Error evaluating risk: ' + err.message);
+      } finally {
+        btn.innerHTML = '<i class="fa-solid fa-bolt mr-2"></i> Evaluate Risk & Check Obligations (RAG + AI)';
+        btn.disabled = false;
+      }
+    }
+
+    function renderResults(data) {
+      document.getElementById('results-placeholder').classList.add('hidden');
+      const card = document.getElementById('results-card');
+      card.classList.remove('hidden');
+
+      // Category color styling
+      const cat = data.finalCategory;
+      const bCard = document.getElementById('badge-card');
+      bCard.className = 'glass-panel rounded-2xl p-6 border-l-8 transition-all ' + 
+        (cat === 4 ? 'border-red-500 glow-critical' : cat === 3 ? 'border-orange-500 glow-high' : cat === 2 ? 'border-amber-500 glow-medium' : 'border-emerald-500 glow-low');
+
+      const titleColors = { 4: 'text-red-400', 3: 'text-orange-400', 2: 'text-amber-400', 1: 'text-emerald-400' };
+      document.getElementById('res-cat-title').className = `text-3xl font-extrabold mt-1 ${titleColors[cat] || 'text-white'}`;
+      document.getElementById('res-cat-title').innerText = `${data.categoryLabel} (Category ${data.finalCategory})`;
+      document.getElementById('res-score-badge').innerText = `Score: ${data.riskScore}`;
+
+      // Obligations Banner
+      const oblBanner = document.getElementById('res-obligations-banner');
+      const oblText = document.getElementById('res-obligations-text');
+      const oblIcon = document.getElementById('res-obligations-icon');
+
+      if (data.obligationsSatisfied) {
+        oblBanner.className = 'p-3.5 rounded-xl text-xs font-semibold flex items-center justify-between mb-4 bg-emerald-950/40 border border-emerald-500/30 text-emerald-300';
+        oblText.innerText = 'All Category ' + cat + ' Mandatory Obligations Satisfied ✅';
+        oblIcon.className = 'fa-solid fa-circle-check text-emerald-400 text-lg';
+      } else {
+        oblBanner.className = 'p-3.5 rounded-xl text-xs font-semibold flex items-center justify-between mb-4 bg-red-950/40 border border-red-500/30 text-red-300';
+        oblText.innerText = 'Missing Required Obligations: ' + data.missingObligations.join(', ');
+        oblIcon.className = 'fa-solid fa-triangle-exclamation text-red-400 text-lg';
+      }
+
+      // Obligations Checklist
+      const checkList = document.getElementById('obligations-checklist');
+      checkList.innerHTML = '';
+      const reqs = data.requiredObligations.length > 0 ? data.requiredObligations : ['None Required (Low Risk)'];
+      reqs.forEach(req => {
+        const isMissing = data.missingObligations.includes(req);
+        const item = document.createElement('div');
+        item.className = `p-2 rounded-lg border text-center font-medium ${isMissing ? 'bg-red-900/20 border-red-700/40 text-red-300' : 'bg-emerald-900/20 border-emerald-700/40 text-emerald-300'}`;
+        item.innerHTML = `${isMissing ? '❌' : '✅'} ${req}`;
+        checkList.appendChild(item);
+      });
+
+      // RAG Citations
+      const ragContainer = document.getElementById('rag-citations-container');
+      ragContainer.innerHTML = '';
+      if (data.ragCitations && data.ragCitations.length > 0) {
+        data.ragCitations.forEach(c => {
+          const div = document.createElement('div');
+          div.className = 'p-3 bg-gray-900/80 rounded-xl border border-gray-800 space-y-1';
+          div.innerHTML = `
+            <div class="flex items-center justify-between font-semibold text-gray-200">
+              <span class="text-indigo-400 font-mono">${c.docId}: ${c.title}</span>
+              <span class="px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 text-[10px] border border-indigo-700/40">${Math.round(c.similarityScore * 100)}% Match</span>
+            </div>
+            <p class="text-gray-400 text-[11px] leading-relaxed">${c.excerpt}</p>
+          `;
+          ragContainer.appendChild(div);
+        });
+      }
+
+      // AI Advisor Block
+      if (data.aiAssessment) {
+        document.getElementById('ai-summary-text').innerText = data.ragExecutiveSummary || data.aiAssessment.executiveSummary;
+        document.getElementById('ai-just-quality').innerText = data.aiAssessment.justificationQuality;
+        document.getElementById('ai-rollback-quality').innerText = data.aiAssessment.rollbackPlanQuality;
+
+        const rfContainer = document.getElementById('ai-redflags-section');
+        rfContainer.innerHTML = '';
+        if (data.aiAssessment.semanticRedFlags && data.aiAssessment.semanticRedFlags.length > 0) {
+          data.aiAssessment.semanticRedFlags.forEach(rf => {
+            const el = document.createElement('div');
+            el.className = 'p-2 rounded bg-red-950/30 border border-red-800/40 text-red-300 flex items-center space-x-2';
+            el.innerHTML = `<i class="fa-solid fa-flag text-red-400"></i><span>${rf}</span>`;
+            rfContainer.appendChild(el);
+          });
+        }
+      }
+
+      // Reasoning List
+      const rList = document.getElementById('reasoning-list');
+      rList.innerHTML = '';
+      data.classificationReasons.forEach(r => {
+        const li = document.createElement('li');
+        li.innerText = r;
+        rList.appendChild(li);
+      });
+    }
+
+    async function loadRAGDocuments() {
+      const grid = document.getElementById('rag-documents-grid');
+      try {
+        const res = await fetch('/api/v1/rag/documents');
+        const docs = await res.json();
+        grid.innerHTML = '';
+        docs.forEach(doc => {
+          const div = document.createElement('div');
+          div.className = 'p-4 glass-card rounded-xl border border-gray-800 space-y-2';
+          div.innerHTML = `
+            <div class="flex items-center justify-between">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-950 text-indigo-300 border border-indigo-800/40">${doc.category}</span>
+              <span class="font-mono text-gray-400 text-xs font-bold">${doc.docId}</span>
+            </div>
+            <h4 class="text-sm font-bold text-white">${doc.title}</h4>
+            <p class="text-xs text-gray-400 leading-relaxed">${doc.content}</p>
+            <div class="text-[11px] text-gray-500 pt-1">Enforces: <span class="text-gray-300">${doc.mandatoryObligations.join(', ')}</span></div>
+          `;
+          grid.appendChild(div);
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function searchRAGKnowledgeBase() {
+      const q = document.getElementById('rag-search-input').value;
+      if (!q) return loadRAGDocuments();
+      const grid = document.getElementById('rag-documents-grid');
+      try {
+        const res = await fetch('/api/v1/rag/query', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: q, topK: 5 })
+        });
+        const data = await res.json();
+        grid.innerHTML = '';
+        data.chunks.forEach(c => {
+          const div = document.createElement('div');
+          div.className = 'p-4 glass-card rounded-xl border border-indigo-500/40 space-y-2';
+          div.innerHTML = `
+            <div class="flex items-center justify-between">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-950 text-indigo-300">${c.category}</span>
+              <span class="font-mono text-emerald-400 text-xs font-bold">${Math.round(c.similarityScore * 100)}% Match</span>
+            </div>
+            <h4 class="text-sm font-bold text-white">${c.title} (${c.docId})</h4>
+            <p class="text-xs text-gray-400">${c.excerpt}</p>
+          `;
+          grid.appendChild(div);
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function submitPeerReview(reviewerId, formPrefix) {
+      const cat = parseInt(document.getElementById(`${formPrefix}-cat`).value);
+      const reason = document.getElementById(`${formPrefix}-reason`).value;
+      const opId = 'op-peer-consensus-demo';
+
+      try {
+        const res = await fetch('/api/v1/reviews', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ operationId: opId, reviewerId, category: cat, reason })
+        });
+        const data = await res.json();
+        
+        const box = document.getElementById('review-consensus-box');
+        const content = document.getElementById('review-consensus-content');
+        box.classList.remove('hidden');
+
+        if (data.reviewStatus === 'AGREEMENT') {
+          content.innerHTML = `
+            <div class="p-3 bg-emerald-950/40 border border-emerald-500/40 rounded-xl text-emerald-300 text-xs">
+              <div class="font-bold text-sm mb-1"><i class="fa-solid fa-handshake mr-1.5"></i> AGREEMENT REACHED!</div>
+              <p>${data.message}</p>
+            </div>
+          `;
+        } else if (data.reviewStatus === 'DISAGREEMENT') {
+          content.innerHTML = `
+            <div class="p-3 bg-red-950/40 border border-red-500/40 rounded-xl text-red-300 text-xs">
+              <div class="font-bold text-sm mb-1"><i class="fa-solid fa-triangle-exclamation mr-1.5"></i> DISAGREEMENT RECORDED!</div>
+              <p>${data.message}</p>
+              <div class="mt-2 font-mono text-[11px] text-gray-300 bg-gray-900 p-2 rounded">${data.disagreement ? data.disagreement.note : ''}</div>
+            </div>
+          `;
+        } else {
+          content.innerHTML = `
+            <div class="p-3 bg-indigo-950/40 border border-indigo-500/40 rounded-xl text-indigo-300 text-xs">
+              <div class="font-bold text-sm mb-1">Review 1 Recorded (Pending Reviewer 2)</div>
+              <p>${data.message}</p>
+            </div>
+          `;
+        }
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    async function loadPinsReport() {
+      const tbody = document.getElementById('pins-table-body');
+      try {
+        const res = await fetch('/api/v1/policies/pins/review-report');
+        const data = await res.json();
+        tbody.innerHTML = '';
+        if (data.expiredReviewPins && data.expiredReviewPins.length > 0) {
+          data.expiredReviewPins.forEach(p => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td class="px-4 py-3 font-mono font-bold text-indigo-300">${p.pinId}</td>
+              <td class="px-4 py-3 font-mono text-gray-300">${p.policyId}</td>
+              <td class="px-4 py-3 text-gray-400">${new Date(p.reviewDate).toLocaleDateString()}</td>
+              <td class="px-4 py-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-800/40">${p.status}</span></td>
+              <td class="px-4 py-3 font-bold text-red-400">${p.daysOverdue} days overdue</td>
+            `;
+            tbody.appendChild(tr);
+          });
+        } else {
+          tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-4 text-center text-gray-500">No overdue pins at this time.</td></tr>';
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.className = 'tab-btn px-4 py-2 text-sm font-semibold rounded-lg text-gray-400 hover:text-gray-200 hover:bg-gray-800 flex items-center space-x-2 transition';
+      });
+      document.getElementById(`panel-${tabId}`).classList.remove('hidden');
+      document.getElementById(`tab-${tabId}`).className = 'tab-btn px-4 py-2 text-sm font-semibold rounded-lg bg-indigo-600 text-white flex items-center space-x-2 transition shadow-lg shadow-indigo-500/20';
+
+      if (tabId === 'rag') loadRAGDocuments();
+      if (tabId === 'pins') loadPinsReport();
+    }
+
+    // Initialize default UI state on load
+    updateFormula();
+  </script>
+</body>
+</html>
